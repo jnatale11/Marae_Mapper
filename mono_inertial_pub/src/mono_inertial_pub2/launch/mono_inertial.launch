@@ -1,0 +1,4 @@
+<launch>
+  <node name="IMU_Producer" pkg="mono_inertial_pub2" type="stream_imu.py"/>
+  <node name="Imagery_Producer" pkg="mono_inertial_pub2" type="stream_imagery.py"/>
+</launch>

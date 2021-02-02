@@ -566,7 +566,7 @@ struct bno055_euler_t
 /*!
  * @brief struct for Quaternion data read from registers
  */
-extern "C" struct bno055_quaternion_t
+struct bno055_quaternion_t
 {
     s16 w; /**< Quaternion w data */
     s16 x; /**< Quaternion x data */
@@ -618,7 +618,7 @@ struct bno055_mag_double_t
 /*!
  * @brief struct for Gyro-output data of precision double
  */
-extern "C" struct bno055_gyro_double_t
+struct bno055_gyro_double_t
 {
     double x; /**< Gyro x double data */
     double y; /**< Gyro y double data */
@@ -638,7 +638,7 @@ struct bno055_euler_double_t
 /*!
  * @brief struct for Linear Accel-output data of precision double
  */
-extern "C" struct bno055_linear_accel_double_t
+struct bno055_linear_accel_double_t
 {
     double x; /**< linear accel x double data */
     double y; /**< linear accel y double data */
@@ -769,11 +769,11 @@ struct bno055_sic_matrix_t
 /*
  * struct marae_data_t encompasses all data from a single pass at the IMU to retrieve data
  */
-extern "C" struct marae_data_t {
+struct marae_data_t {
     int status; /* 0 on success, failure results in distinct number for different errors */
-    bno055_quaternion_t quaternion; /*wxyz*/
-    bno055_linear_accel_double_t lin_accel; /*xyz in m/s^2*/
-    bno055_gyro_double_t ang_vel; /*xyz in rps*/
+    struct bno055_quaternion_t quaternion; /*wxyz*/
+    struct bno055_linear_accel_double_t lin_accel; /*xyz in m/s^2*/
+    struct bno055_gyro_double_t ang_vel; /*xyz in rps*/
 };
 
 /***************************************************/

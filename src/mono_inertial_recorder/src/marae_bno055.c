@@ -39,7 +39,7 @@
 /*---------------------------------------------------------------------------*
 *  Includes
 *---------------------------------------------------------------------------*/
-#include "bno055.h"
+#include "bno055.c"
 #include <stdio.h>
 #include <unistd.h>				//Needed for I2C port
 #include <fcntl.h>				//Needed for I2C port
@@ -119,7 +119,6 @@ int file_i2c;
  * Return value of 0 indicates Error
  * Return value of anything else indicates the I2C file active
  */
-extern "C" int init_and_calib_bno055(void);
 int init_and_calib_bno055(void)
 {
     u8 power_mode_on = BNO055_POWER_MODE_NORMAL;
@@ -145,7 +144,7 @@ int init_and_calib_bno055(void)
     power_on_res = bno055_set_power_mode(power_mode_on);
 
     if (init_res == BNO055_SUCCESS && power_on_res == BNO055_SUCCESS) {
-      printf("Successful setup of BNO055\n");
+      printf("Successful setup of motion sensor\n");
     } else {
       printf("Failed setup of BNO055\n");
     }
@@ -171,7 +170,8 @@ int init_and_calib_bno055(void)
 	printf("Intr rst val:%d\n", d_intr_rst);
     }
 
-    while (d_sys_calib != 3) {
+    //TODO change back to 3 after testing
+    while (d_sys_calib != 2) {
 
 	comres = bno055_get_mag_calib_stat(&d_mag_calib);
 	if (comres != BNO055_SUCCESS) {
@@ -189,7 +189,7 @@ int init_and_calib_bno055(void)
 	if (comres != BNO055_SUCCESS) {
             printf("Failed to get sys calib\n");
         }
-	printf("BNO055 Calibration value is %d with mag:%d accel:%d gyro:%d\n", d_sys_calib, d_mag_calib, d_accel_calib, d_gyro_calib);
+	printf("BNO055 Calib is %d with mag:%d accel:%d gyro:%d\n", d_sys_calib, d_mag_calib, d_accel_calib, d_gyro_calib);
 	sleep(1);
     }
 
@@ -202,7 +202,6 @@ int init_and_calib_bno055(void)
  * Probably going to specify some data return type AFTER verifying that C/C++ works as expected
  * covering errors, and all data outputs expected
  */
-extern "C" struct marae_data_t get_bno055_data(void);
 // at first, let's have 1 indicate failure and 0 indicate success
 struct marae_data_t get_bno055_data(void) {
     struct marae_data_t data;
@@ -256,7 +255,6 @@ struct marae_data_t get_bno055_data(void) {
 
 /* Safely shut down BNO055 
  * 0 is success, 1 is failure */
-extern "C" int close_bno055(void);
 int close_bno055(void) {
     u8 power_mode = BNO055_POWER_MODE_SUSPEND;
     /* set the power mode as SUSPEND*/

@@ -2,3 +2,4 @@ mono_inertial_pub/build/*
 mono_inertial_pub/devel/*
 /devel/*
 /build/*
+*.bag

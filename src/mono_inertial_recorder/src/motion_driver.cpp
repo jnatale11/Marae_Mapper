@@ -1,17 +1,18 @@
 // ROS Imu Node 
 
+#include <stdio.h>
 #include <iostream>
-#include <chrono>
-#include <ctime>
-//#include "bno055.h"
-//#include "bno055.c"
+#include <string>
+//#include <chrono>
+//#include <ctime>
 #include "marae_bno055.c"
 #include <rosbag/bag.h>
 #include <ros/time.h>
 #include <sensor_msgs/Imu.h>
-#include <sensor_msgs/Image.h>
 #include <geometry_msgs/Quaternion.h>
 #include <geometry_msgs/Vector3.h>
+
+using namespace std;
 
 void set_orientation(geometry_msgs::Quaternion* orientation, struct marae_data_t imu_data) {
     orientation->x = imu_data.quaternion.x;
@@ -36,12 +37,14 @@ void set_lin_accel(geometry_msgs::Vector3* lin_accel, struct marae_data_t imu_da
 
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
-  printf("Test...\n");
+  printf("Hi Juicy Motion Sensor...\n");
+  string bag_suffix = argv[1];
+  int tot_frames = atoi(argv[2]);
+  string bag_fname = "marae_mono_inertial_" + bag_suffix + ".bag";
   int i, func_val;
   struct marae_data_t imu_data = {};
-  auto start = std::chrono::system_clock::now();
   rosbag::Bag bag;
   sensor_msgs::Imu imu_msg;
   geometry_msgs::Quaternion orientation;
@@ -50,20 +53,21 @@ int main(void)
   //TODO may want to fill in cov matrix in future for better accuracy
   boost::array<double, 9> cov_matrix_zero = {0,0,0,0,0,0,0,0,0};
 
-  // TODO add in param to cpp to set bag name
-  bag.open("marae_mono_inertial.bag", rosbag::bagmode::Write);
+  bag.open(bag_fname, rosbag::bagmode::Write);
   
   func_val = init_and_calib_bno055();
   printf("Init and Calib returned %d\n", func_val);
-  
-  for (i=0; i< 2000; i++) {
+ 
+  ros::Time::init();
+
+  for (i=0; i< tot_frames; i++) {
       //TODO may want to verify at some point the quality of this data - as in - is the config properly tuned for this freq?
       imu_data = get_bno055_data();
-      //auto end = std::chrono::system_clock::now();
-      //std::chrono::duration<double> elapsed_time = end - start;
-      //printf("%d %f\n", i, elapsed_time.count());
-      imu_msg.header.stamp = ros::Time::now(); 
-      //printf("%d %f\n", i, ros::Time::now());
+      if (imu_data.status != 0) {
+        printf("Imu Data Issue: %d\n", imu_data.status);
+      }
+      
+      imu_msg.header.stamp = ros::Time::now();
       
       set_orientation(&orientation, imu_data);
       imu_msg.orientation = orientation;
@@ -77,13 +81,10 @@ int main(void)
       imu_msg.linear_acceleration = linear_acceleration;
       imu_msg.linear_acceleration_covariance = cov_matrix_zero;
       
-      printf("Data %f %f %f\n", imu_msg.linear_acceleration.x, imu_msg.angular_velocity.y, imu_msg.orientation.w);
       // build message event and write to bag
-      //boost::shared_ptr<const sensor_msgs::Imu> msg_ptr(new sensor_msgs::Imu(imu_msg));
-      //ros::MessageEvent<sensor_msgs::Imu> message(msg_ptr, ros::Time::now());
-      
-      //bag.write("imu", message);
-      //printf("BNO055 func call returned %d at %f\n", func_val, seconds);
+      boost::shared_ptr<const sensor_msgs::Imu> msg_ptr(new sensor_msgs::Imu(imu_msg));
+      ros::MessageEvent<sensor_msgs::Imu> message(msg_ptr, ros::Time::now());
+      bag.write("imu", message);
   }
 
   func_val = close_bno055();

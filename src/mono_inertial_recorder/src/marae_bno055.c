@@ -144,7 +144,7 @@ int init_and_calib_bno055(void)
     power_on_res = bno055_set_power_mode(power_mode_on);
 
     if (init_res == BNO055_SUCCESS && power_on_res == BNO055_SUCCESS) {
-      printf("Successful setup of motion sensor\n");
+      printf("BNO055 Initialized\n");
     } else {
       printf("Failed setup of BNO055\n");
     }

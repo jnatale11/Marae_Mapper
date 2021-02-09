@@ -11,11 +11,16 @@ find_package(catkin REQUIRED COMPONENTS
   rosbag
   roscpp
   std_msgs
+  cv_bridge
 )
 
 find_package(
   Boost REQUIRED COMPONENTS
   system
+)
+
+find_package(
+  OpenCV 3 REQUIRED
 )
 
 ## Gahhh damn... now i see this
@@ -124,6 +129,7 @@ INCLUDE_DIRS include
 include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -139,7 +145,8 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(${PROJECT_NAME}_node src/cpp_marae_driver.cpp)
+add_executable(${PROJECT_NAME}_motion src/motion_driver.cpp)
+add_executable(${PROJECT_NAME}_imagery_synth src/imagery_synth.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -152,8 +159,11 @@ add_executable(${PROJECT_NAME}_node src/cpp_marae_driver.cpp)
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(${PROJECT_NAME}_node
+target_link_libraries(${PROJECT_NAME}_motion
 	boost_system ${catkin_LIBRARIES}
+)
+target_link_libraries(${PROJECT_NAME}_imagery_synth
+	boost_system ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} 
 )
 
 #############

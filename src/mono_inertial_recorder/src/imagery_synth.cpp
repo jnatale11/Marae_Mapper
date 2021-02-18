@@ -20,37 +20,37 @@
 using namespace std;
 using namespace cv;
 
-// get images from video in batches, since we're limited to 1GB RAM
-void extract_frames(const string& vid_file_path, vector<cv::Mat>& frames) {
-  printf("Extracting image frames...\n");
-  int c = 1;
+// get batch of 50 frames from video file
+// returns whether or not there are more frames left in the video
+bool extract_frames(VideoCapture cap, vector<cv::Mat>& frames) {
   try {
     //open video file
-    VideoCapture cap(vid_file_path);
-    if (!cap.isOpened()) //check if success
-      CV_Error(CV_StsError, "Can not open video file");
+    //VideoCapture cap(vid_file_path);
+    //if (!cap.isOpened()) //check if success
+    //  CV_Error(CV_StsError, "Can not open video file");
     
     //printf("Num of frames is %d\n", cap.get(CV_CAP_PROP_FRAME_COUNT));
     //printf("Frame rate: %f, current frame: %f, current time: %f\n", cap.get(CV_CAP_PROP_FPS), cap.get(CV_CAP_PROP_POS_FRAMES), cap.get(CV_CAP_PROP_POS_MSEC));
-    // iterate over all frames, adding to frames vector
-    for (;;) {
+    // iterate over batch of frames, adding to frames vector
+    for (int c = 0; c < 50; c++) {
       cv::Mat frame;    
       cap.read(frame);
       printf("Frame %d Read. ", c);
-      c++;
       if (frame.empty()) {
-        break;
+          return false;
       }
       //printf("Frame sizeof(): %d, and frame channels: %d\n", sizeof(frame), frame.channels());
       //printf("Frame elemSize(): %d, and frame elemSize1(): %d, and depth(): %d\n", frame.elemSize(), frame.elemSize1(), frame.depth());
       //printf("Cols: %d, Rows: %d, Type: %d\n", frame.cols, frame.rows, frame.type());
       frames.push_back(frame);
+      c++;
     }
   } catch (cv::Exception& e) {
     cerr << e.msg << endl;
     exit(1);
   }
-  printf("\n");
+  
+  return true;
 }
 
 // get timestamps from input file
@@ -82,6 +82,7 @@ void extract_timestamps(const string& ts_file_path, vector<double>& timestamps) 
   ts_file.close();
 }
 
+
 int main(int argc, char *argv[])
 {
   printf("Starting ros image population...\n");
@@ -92,32 +93,14 @@ int main(int argc, char *argv[])
   string bag_fname = "marae_mono_inertial_" + bag_suffix + ".bag";
   int i, func_val;
   rosbag::Bag motion_bag, mono_inertial_bag;
-  sensor_msgs::Image image_msg;
-  vector<cv::Mat> frames;
   vector<double> timestamps;
+  vector<cv::Mat> frames_raw;
   vector<sensor_msgs::Imu::ConstPtr> imu_data;
-
-  // populate frames and timestamps vectors
-  extract_frames(vid_fpath, frames);
-  extract_timestamps(ts_fpath, timestamps);
-  if (frames.size() == timestamps.size()) {
-    printf("Imagery data aligns with %d frames\n", frames.size());
-  }
-
-  // check and see if frames are different
-  for(i=1; i < frames.size(); i++) {
-    bool eq = cv::countNonZero(frames.at(i)!=frames.at(i-1)) == 0;
-    if (eq) {
-	printf("frames were equal\n");
-    } else {
-	printf("frames were not equal\n");
-    }
-  }
 
   //opening final data bag
   mono_inertial_bag.open(bag_fname, rosbag::bagmode::Write);
 
-  // open motion bag and save motion data to the final bag
+  // open motion bag and save motion data to the final mono_inertial bag
   motion_bag.open(motion_bag_fname, rosbag::bagmode::Read);
   vector<string> motion_topics;
   motion_topics.push_back(string("imu"));
@@ -128,18 +111,34 @@ int main(int argc, char *argv[])
   }
   motion_bag.close();
 
-  for (i=0; i < frames.size(); i++) {
-    //image_msg.data = frames.at(i);
-    //image_msg.height = 640;
-    //image_msg.width = 640;
-    //image_msg.encoding = "bgr8";
-    //boost::shared_ptr<const sensor_msgs::Image> msg_ptr(new sensor_msgs::Image(image_msg));
-    // seems to be the case that all frames objects are the same, since using 100 also looks like i
-    const sensor_msgs::ImagePtr msg_ptr = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frames.at(i)).toImageMsg();
-    ros::MessageEvent<sensor_msgs::Image> message(msg_ptr, ros::Time(timestamps.at(i)));
-    mono_inertial_bag.write("camera/image_raw", message);
-  }
+  // incorporate imagery data
+  // populate timestamp vector of imagery
+  extract_timestamps(ts_fpath, timestamps);
+  //open video file
+  try {
+    VideoCapture cap(vid_fpath);
+    if (!cap.isOpened()) //check if success
+      CV_Error(CV_StsError, "Can not open video file");
   
+    // populate frames in batches and synthesize with timestamps
+    bool hasMoreFrames = true;
+    i = 0;
+    while (hasMoreFrames) {
+      hasMoreFrames = extract_frames(cap, frames_raw);
+      //iterate over frames_raw
+      for (int j = 0; j < frames_raw.size(); j++) {
+        const sensor_msgs::ImagePtr msg_ptr = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frames_raw.at(j)).toImageMsg();
+        ros::MessageEvent<sensor_msgs::Image> message(msg_ptr, ros::Time(timestamps.at(i)));
+        mono_inertial_bag.write("camera/image_raw", message);
+        i++;
+      }
+      frames_raw.clear();
+    }
+  } catch (cv::Exception& e) {
+    cerr << e.msg << endl;
+    exit(1);
+  }
+
   mono_inertial_bag.close();
   return 0;
 }

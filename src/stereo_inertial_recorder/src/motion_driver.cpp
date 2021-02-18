@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
       }
       
       imu_msg.header.stamp = ros::Time::now();
-      //NOTE: this is a different type of frame!
+      //NOTE: this is a different thing than other 'frames' used 
       imu_msg.header.frame_id = "pi_base_link";
 
       set_orientation(&orientation, imu_data);
@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
       boost::shared_ptr<const sensor_msgs::Imu> msg_ptr(new sensor_msgs::Imu(imu_msg));
       ros::MessageEvent<sensor_msgs::Imu> message(msg_ptr, ros::Time::now());
       bag.write("imu", message);
-      sleep(1);
+      //sleep(1);
   }
 
   func_val = close_bno055();

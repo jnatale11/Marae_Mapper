@@ -23,42 +23,44 @@ using namespace cv;
 
 // get batch of 50 cam0 and 50 cam1 frames from stereo video file
 // returns whether or not there are more frames left in the video
-bool extract_frames(VideoCapture cap, vector<cv::Mat>& frames_raw_0, vector<cv::Mat>& frames_raw_1, cv::Mat mask0, cv::Mat mask1) {
+bool extract_frames(VideoCapture cap, vector<cv::Mat>& frames_raw_0, vector<cv::Mat>& frames_raw_1, cv::Rect crop0, cv::Rect crop1, int batchNum) {
   try {
-    printf("Extracting image frames...\n");
+    printf("Extracting image frames batch %d...\n", batchNum);
     //printf("Num of frames is %d\n", cap.get(CV_CAP_PROP_FRAME_COUNT));
     //printf("Frame rate: %f, current frame: %f, current time: %f\n", cap.get(CV_CAP_PROP_FPS), cap.get(CV_CAP_PROP_POS_FRAMES), cap.get(CV_CAP_PROP_POS_MSEC));
     // iterate over batch of frames, adding to frames vector
     for (int c = 0; c < 50; c++) {
-      cv::Mat stereo_frame = cv::Mat::zeros(cv::Size(1408, 700), CV_8UC3);
-      cv::Mat frame_0 = cv::Mat::zeros(cv::Size(700, 700), CV_8UC3);
-      cv::Mat frame_1 = cv::Mat::zeros(cv::Size(700, 700), CV_8UC3);
+      cv::Mat stereo_frame;// = cv::Mat::zeros(cv::Size(1408, 700), CV_8UC3);
+      //cv::Mat frame_0 = cv::Mat::zeros(cv::Size(700, 700), CV_8UC3);
+      //cv::Mat frame_1 = cv::Mat::zeros(cv::Size(700, 700), CV_8UC3);
       cap.read(stereo_frame);
-      printf("Frame %d Read. ", c);
+      printf("Frame %d Read.\n", c);
       if (stereo_frame.empty()) {
-          return false;
+          printf("Reached end of video.\n");
+	  return false;
       }
-      printf("stereo_frame.size: (%d, %d) and channels: %d \n", stereo_frame.size().width, stereo_frame.size().height, stereo_frame.channels());
       //now, split the stereo frame
-      printf("frame_0.size: (%d, %d), mask0.size: (%d, %d)\n", frame_0.size().width, frame_0.size().height, mask0.size().width, mask0.size().height);
-      stereo_frame.copyTo(frame_0, mask0);
-      stereo_frame.copyTo(frame_1, mask1);
+      //printf("crop 0 x: %d, y: %d, width: %d, height: %d\n", crop0.x, crop0.y, crop0.width, crop0.height);
+      cv::Mat frame_0 = stereo_frame(crop0);
+      //printf("frame_0 done");
+      //printf("crop 1 x: %d, y: %d, width: %d, height: %d\n", crop1.x, crop1.y, crop1.width, crop1.height);
+      cv::Mat frame_1 = stereo_frame(crop1);
 
-      printf("frame_0.size: (%d, %d)\n", frame_0.size().width, frame_0.size().height);
+      //printf("frame_0.size: (%d, %d)\n", frame_0.size().width, frame_0.size().height);
       //printf("Frame sizeof(): %d, and frame channels: %d\n", sizeof(frame), frame.channels());
       //printf("Frame elemSize(): %d, and frame elemSize1(): %d, and depth(): %d\n", frame.elemSize(), frame.elemSize1(), frame.depth());
       //printf("Cols: %d, Rows: %d, Type: %d\n", frame.cols, frame.rows, frame.type());
-      
-      frames_raw_0.push_back(frame_0);
-      frames_raw_1.push_back(frame_1);
+      if (c%3 == 0) { 
+        frames_raw_0.push_back(frame_0);
+        frames_raw_1.push_back(frame_1);
+      }
       // also write both to their respective folders as images to use in calibration
-      cv::imwrite(format("./left/img%d.jpg", c), frame_0);
-      cv::imwrite(format("./right/img%d.jpg", c), frame_1);
-      cv::imwrite("./left/stereo.jpg", stereo_frame);
+      //cv::imwrite(format("./left/img%d_%d.jpg", batchNum, c), frame_0);
+      //cv::imwrite(format("./right/img%d_%d.jpg", batchNum, c), frame_1);
+      //cv::imwrite("./left/stereo.jpg", stereo_frame);
     }
-    cv::imwrite("mask0.jpg", mask0);
-    cv::imwrite("mask1.jpg", mask1);
   } catch (cv::Exception& e) {
+    printf("Exception Caught Bro!\n");
     cerr << e.msg << endl;
     exit(1);
   }
@@ -98,13 +100,13 @@ void extract_timestamps(const string& ts_file_path, vector<double>& timestamps) 
 
 int main(int argc, char *argv[])
 {
+  ros::Time::init();
   printf("Starting Stereo Image Synthesizer....\n");
   string bag_suffix = argv[1];
   string vid_fpath = argv[2];
   string ts_fpath = argv[3];
   string motion_bag_fname = "marae_mono_inertial_motion.bag";
   string bag_fname = "marae_stereo_inertial_" + bag_suffix + ".bag";
-  int i, func_val;
   rosbag::Bag motion_bag, stereo_inertial_bag;
   vector<double> timestamps;
   vector<cv::Mat> frames_raw_0, frames_raw_1;
@@ -130,13 +132,16 @@ int main(int argc, char *argv[])
   // populate timestamp vector of imagery
   extract_timestamps(ts_fpath, timestamps);
   // generate masks for stereo imagery processing
-  // mask0 will be used to get frames from cam0 (left)
-  // mask1 will be used to get frames from cam1 (right)
-  cv::Mat mask0 = cv::Mat::zeros(cv::Size(1408, 700), CV_8UC3);//cv::Mat(700, 1400, CV_8UC1, 0);
-  cv::Mat mask1 = cv::Mat::zeros(cv::Size(1408, 700), CV_8UC3);//cv::Mat(mask0, true); 
-  cv::Vec3b filled_pixel(1, 1, 1);
+  // crop0 will be used to get frames from cam0 (left)
+  // crop1 will be used to get frames from cam1 (right)
+  cv::Rect crop0(0, 0, 700, 700);
+  cv::Rect crop1(701, 0, 700, 700);
+  //cv::Mat mask0 = cv::Mat::zeros(cv::Size(1408, 700), CV_8UC3);//cv::Mat(700, 1400, CV_8UC1, 0);
+  //cv::Mat mask1 = cv::Mat::zeros(cv::Size(1408, 700), CV_8UC3);//cv::Mat(mask0, true); 
+  //cv::Vec3b filled_pixel(1, 1, 1);
   // mask0 will be first 700 columns
   // then will have a one column gap and mask1 will be the next 700 columns
+  /*
   for(int col=0; col<1402; col++) {
     for(int row=0; row<700; row++) {
         if (col < 700) {
@@ -147,6 +152,7 @@ int main(int argc, char *argv[])
     }
   } 
   printf("Stereo Masks Generated.\n");
+  */
 
   //open video file
   try {
@@ -156,22 +162,26 @@ int main(int argc, char *argv[])
   
     // populate frames in batches and synthesize with timestamps
     bool hasMoreFrames = true;
-    i = 0;
-    while (hasMoreFrames) {
-      hasMoreFrames = extract_frames(cap, frames_raw_0, frames_raw_1, mask0, mask1);
+    int batchNum = 0;
+    int timestampNum = 0;
+    do {
+      hasMoreFrames = extract_frames(cap, frames_raw_0, frames_raw_1, crop0, crop1, batchNum);
       //iterate over batch of raw frames (from cam 0 and cam 1) 
       for (int j = 0; j < frames_raw_0.size(); j++) {
-        const sensor_msgs::ImagePtr msg_ptr_0 = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frames_raw_0.at(j)).toImageMsg();
+        printf("looping over batch at value... %d\n", j);
+	const sensor_msgs::ImagePtr msg_ptr_0 = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frames_raw_0.at(j)).toImageMsg();
 	const sensor_msgs::ImagePtr msg_ptr_1 = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frames_raw_1.at(j)).toImageMsg();
-        ros::MessageEvent<sensor_msgs::Image> message_0(msg_ptr_0, ros::Time(timestamps.at(i)));
-        ros::MessageEvent<sensor_msgs::Image> message_1(msg_ptr_1, ros::Time(timestamps.at(i)));
+        ros::MessageEvent<sensor_msgs::Image> message_0(msg_ptr_0, ros::Time::now());//(timestamps.at(timestampNum)));
+        ros::MessageEvent<sensor_msgs::Image> message_1(msg_ptr_1, ros::Time::now());//(timestamps.at(timestampNum)));
         stereo_inertial_bag.write("camera/left/image_raw", message_0);
 	stereo_inertial_bag.write("camera/right/image_raw", message_1);
-        i++;
+        timestampNum++;
+	sleep(1);
       }
       frames_raw_0.clear();
       frames_raw_1.clear();
-    }
+      batchNum++;
+    } while (hasMoreFrames);
   } catch (cv::Exception& e) {
     cerr << e.msg << endl;
     exit(1);

@@ -17,7 +17,7 @@ void set_orientation(geometry_msgs::Quaternion* orientation, struct marae_data_t
     orientation->y = imu_data.quaternion.y;
     orientation->z = imu_data.quaternion.z;
     orientation->w = imu_data.quaternion.w;
-    printf("quaternion x: %f, y: %f, z: %f, w: %f\n", orientation->x, orientation->y, orientation->z, orientation->w);
+    //printf("quaternion x: %f, y: %f, z: %f, w: %f\n", orientation->x, orientation->y, orientation->z, orientation->w);
     return;
 }
 
@@ -25,7 +25,7 @@ void set_ang_vel(geometry_msgs::Vector3* ang_vel, struct marae_data_t imu_data) 
     ang_vel->x = imu_data.ang_vel.x;
     ang_vel->y = imu_data.ang_vel.y;
     ang_vel->z = imu_data.ang_vel.z;
-    printf("ang vel (rps) x: %f, y: %f, z: %f\n", ang_vel->x, ang_vel->y, ang_vel->z);
+    //printf("ang vel (rps) x: %f, y: %f, z: %f\n", ang_vel->x, ang_vel->y, ang_vel->z);
     return;
 }
 
